@@ -33,7 +33,7 @@ export default function LoginPage() {
       if (data.token) {
         localStorage.setItem("token", data.token);
         document.cookie = `token=${data.token}; path=/; max-age=${60 * 60 * 24 * 7}`;
-        router.push("/");
+       window.location.href = "/";
       } else {
         setError(data.error || "Login failed");
       }
