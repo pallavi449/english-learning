@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const MONGODB_URI =
-  "mongodb+srv://Pallavi:prasad123@cluster0.fqpnxj9.mongodb.net/englishDB";
+  process.env.MONGODB_URI!;
 
 export async function connectDB() {
   if (mongoose.connection.readyState === 1) return;
