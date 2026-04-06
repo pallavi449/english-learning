@@ -1,9 +1,17 @@
 "use client";
-
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function LogoutButton() {
   const router = useRouter();
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    setLoggedIn(!!token);
+  }, []);
+
+  if (!loggedIn) return null; // 👈 hide if not logged in
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
