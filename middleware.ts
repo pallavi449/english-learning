@@ -27,11 +27,9 @@ export async function middleware(req: NextRequest) {
       const { payload } = await jwtVerify(token, secret);
 
       if (payload.role !== "admin") {
-        // Logged in but not admin → redirect to home
         return NextResponse.redirect(new URL("/", req.url));
       }
     } catch {
-      // Invalid/expired token → redirect to login
       return NextResponse.redirect(new URL("/login", req.url));
     }
   }
@@ -40,5 +38,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest\\.json|.*\\.png|.*\\.svg|.*\\.ico).*)"],
 };
