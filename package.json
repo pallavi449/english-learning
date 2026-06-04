@@ -11,6 +11,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.81.0",
     "@google/generative-ai": "^0.24.1",
+    "@vercel/analytics": "^2.0.1",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.2",
     "jsonwebtoken": "^9.0.3",
