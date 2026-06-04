@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { lessons } from "@/data/lessons";
+import { useState, useEffect } from "react";
 
 // ─── Types ───────────────────────────────────────────────────────
 type Sentence = { hindi: string; english: string };
+type Lesson   = { _id: string; title: string; sentences: Sentence[] };
 type VocabWord = {
   _id?: string;
   word: string;
@@ -79,22 +79,33 @@ function buildVocabQuestions(vocab: VocabWord[], quizType: VocabQuizType): QuizQ
 
 // ─── Main Page ──────────────────────────────────────────────────
 export default function QuizPage() {
-  const [mode, setMode] = useState<QuizMode | null>(null);
-  const [vocabQuizType, setVocabQuizType] = useState<VocabQuizType>("meaning");
-  const [vocabLevel, setVocabLevel] = useState<string>("all");
-  const [vocabData, setVocabData] = useState<VocabWord[]>([]);
-  const [loadingVocab, setLoadingVocab] = useState(false);
-  const [quizStarted, setQuizStarted] = useState(false);
+  const [mode, setMode]                     = useState<QuizMode | null>(null);
+  const [vocabQuizType, setVocabQuizType]   = useState<VocabQuizType>("meaning");
+  const [vocabLevel, setVocabLevel]         = useState<string>("all");
+  const [vocabData, setVocabData]           = useState<VocabWord[]>([]);
+  const [loadingVocab, setLoadingVocab]     = useState(false);
+  const [lessons, setLessons]               = useState<Lesson[]>([]);
+  const [loadingLessons, setLoadingLessons] = useState(true);
+  const [quizStarted, setQuizStarted]       = useState(false);
 
   // Quiz state
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
-  const [index, setIndex] = useState(0);
-  const [answered, setAnswered] = useState<number | null>(null);
-  const [score, setScore] = useState(0);
-  const [done, setDone] = useState(false);
+  const [index, setIndex]         = useState(0);
+  const [answered, setAnswered]   = useState<number | null>(null);
+  const [score, setScore]         = useState(0);
+  const [done, setDone]           = useState(false);
 
   const allSentences = lessons.flatMap((l) => l.sentences);
 
+  // ── Fetch lessons from API on mount ──
+  useEffect(() => {
+    fetch("/api/lessons")
+      .then((r) => r.json())
+      .then((data) => { setLessons(data); setLoadingLessons(false); })
+      .catch(() => setLoadingLessons(false));
+  }, []);
+
+  // ── Fetch vocab when needed ──
   useEffect(() => {
     if (mode === "vocab" || mode === "mixed") {
       setLoadingVocab(true);
@@ -111,6 +122,7 @@ export default function QuizPage() {
       vocabLevel === "all" ? vocabData : vocabData.filter((v) => v.level === vocabLevel);
 
     if (mode === "sentences") {
+      if (allSentences.length < 4) return alert("Need at least 4 sentences to start!");
       qs = buildSentenceQuestions(allSentences);
     } else if (mode === "vocab") {
       if (filteredVocab.length < 4) return alert("Need at least 4 vocab words to start!");
@@ -151,6 +163,15 @@ export default function QuizPage() {
     setDone(false);
   }
 
+  // ── Loading screen ──
+  if (loadingLessons) {
+    return (
+      <main className="bg-[#1a1f2e] min-h-screen px-6 py-6 max-w-3xl mx-auto flex items-center justify-center">
+        <p className="text-[#8b9cb8] text-sm animate-pulse">Loading lessons...</p>
+      </main>
+    );
+  }
+
   // ── Done Screen ──
   if (done) {
     const pct = Math.round((score / questions.length) * 100);
@@ -162,9 +183,7 @@ export default function QuizPage() {
           <p className="text-green-400 text-2xl font-medium mb-2">
             {score} / {questions.length}
           </p>
-          <p className="text-[#8b9cb8] text-sm mb-1">
-            {pct}% correct
-          </p>
+          <p className="text-[#8b9cb8] text-sm mb-1">{pct}% correct</p>
           <p className="text-[#8b9cb8] text-sm mb-8">
             {pct >= 80 ? "Excellent work!" : pct >= 50 ? "Good effort, keep going!" : "Keep practicing!"}
           </p>
@@ -214,10 +233,13 @@ export default function QuizPage() {
         </div>
 
         <div className="bg-[#172033] border border-[#2a4a7f] rounded-xl p-5">
-
           {/* Question type badge */}
           <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-400 mb-3 inline-block">
-            {q.type === "sentence" ? "🌐 Translate to English" : q.type === "vocab-meaning" ? "📖 What does this mean?" : "🔤 Which word matches?"}
+            {q.type === "sentence"
+              ? "🌐 Translate to English"
+              : q.type === "vocab-meaning"
+              ? "📖 What does this mean?"
+              : "🔤 Which word matches?"}
           </span>
 
           {/* Question prompt */}
@@ -295,7 +317,7 @@ export default function QuizPage() {
             icon: "📚",
             title: "Sentence Translation",
             desc: "Translate Hindi sentences to English",
-            count: `${allSentences.length} questions`,
+            count: `${allSentences.length} sentences`,
             color: "border-blue-500/40 hover:border-blue-500",
             badge: "bg-blue-900/60 text-blue-400",
           },
@@ -304,7 +326,7 @@ export default function QuizPage() {
             icon: "📖",
             title: "Vocabulary",
             desc: "Test your knowledge of words and meanings",
-            count: `${vocabData.length} words loaded`,
+            count: vocabData.length > 0 ? `${vocabData.length} words` : "tap to load",
             color: "border-purple-500/40 hover:border-purple-500",
             badge: "bg-purple-900/60 text-purple-400",
           },
@@ -349,10 +371,18 @@ export default function QuizPage() {
         <div className="bg-[#172033] border border-[#2a4a7f] rounded-xl p-5 mb-5 space-y-4">
           <p className="text-white text-sm font-medium">⚙️ Quiz Settings</p>
 
+          {mode === "sentences" && (
+            <p className="text-[#8b9cb8] text-sm">
+              {lessons.length === 0
+                ? "⚠️ No lessons found. Add lessons in the Admin panel first."
+                : `${allSentences.length} sentences across ${lessons.length} lesson${lessons.length !== 1 ? "s" : ""}.`}
+            </p>
+          )}
+
           {(mode === "vocab" || mode === "mixed") && (
             <>
               {loadingVocab ? (
-                <p className="text-[#8b9cb8] text-sm">Loading vocabulary...</p>
+                <p className="text-[#8b9cb8] text-sm animate-pulse">Loading vocabulary...</p>
               ) : vocabData.length === 0 ? (
                 <p className="text-red-400 text-sm">⚠️ No vocabulary found. Add words in the Admin panel first.</p>
               ) : (
@@ -389,8 +419,8 @@ export default function QuizPage() {
                       <div className="flex gap-2 flex-wrap">
                         {[
                           { id: "meaning" as VocabQuizType, label: "Word → Meaning" },
-                          { id: "word" as VocabQuizType, label: "Meaning → Word" },
-                          { id: "both" as VocabQuizType, label: "Both" },
+                          { id: "word"    as VocabQuizType, label: "Meaning → Word" },
+                          { id: "both"    as VocabQuizType, label: "Both" },
                         ].map((t) => (
                           <button
                             key={t.id}
@@ -407,15 +437,15 @@ export default function QuizPage() {
                       </div>
                     </div>
                   )}
+
+                  {mode === "mixed" && (
+                    <p className="text-[#8b9cb8] text-sm">
+                      {allSentences.length} sentences + {vocabData.length} vocab words combined.
+                    </p>
+                  )}
                 </>
               )}
             </>
-          )}
-
-          {mode === "sentences" && (
-            <p className="text-[#8b9cb8] text-sm">
-              {allSentences.length} sentences from {lessons.length} lessons.
-            </p>
           )}
         </div>
       )}
@@ -423,7 +453,12 @@ export default function QuizPage() {
       {mode && (
         <button
           onClick={startQuiz}
-          disabled={loadingVocab || ((mode === "vocab" || mode === "mixed") && vocabData.length < 4)}
+          disabled={
+            loadingVocab ||
+            loadingLessons ||
+            (mode === "sentences" && allSentences.length < 4) ||
+            ((mode === "vocab" || mode === "mixed") && vocabData.length < 4)
+          }
           className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-medium hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           🚀 Start Quiz
