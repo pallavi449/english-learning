@@ -18,11 +18,12 @@ const StoryCard = models.StoryCard || model("StoryCard", StoryCardSchema);
 
 export async function DELETE(
   _: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await connectDB();
-    await StoryCard.findByIdAndDelete(params.id);
+    await StoryCard.findByIdAndDelete(id);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error(err);
