@@ -1,26 +1,67 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+
+interface FieldErrors {
+  email?: string;
+  password?: string;
+}
+
+function validateEmail(email: string): string | undefined {
+  if (!email.trim()) return "Email is required";
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) return "Enter a valid email address";
+}
+
+function validatePassword(password: string): string | undefined {
+  if (!password) return "Password is required";
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const validateAll = (): boolean => {
+    const errors: FieldErrors = {
+      email: validateEmail(email),
+      password: validatePassword(password),
+    };
+    setFieldErrors(errors);
+    setTouched({ email: true, password: true });
+    return !errors.email && !errors.password;
+  };
+
+  const handleBlur = (field: keyof FieldErrors) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    const value = field === "email" ? email : password;
+    const err =
+      field === "email" ? validateEmail(value) : validatePassword(value);
+    setFieldErrors((prev) => ({ ...prev, [field]: err }));
+  };
+
+  const handleChange = (
+    field: keyof FieldErrors,
+    value: string,
+    setter: (v: string) => void
+  ) => {
+    setter(value);
+    if (touched[field]) {
+      const err =
+        field === "email" ? validateEmail(value) : validatePassword(value);
+      setFieldErrors((prev) => ({ ...prev, [field]: err }));
+    }
+  };
 
   const handleLogin = async () => {
     setError(null);
-
-    if (!email.trim() || !password.trim()) {
-      setError("All fields are required");
-      return;
-    }
+    if (!validateAll()) return;
 
     setLoading(true);
-
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -33,7 +74,7 @@ export default function LoginPage() {
       if (data.token) {
         localStorage.setItem("token", data.token);
         document.cookie = `token=${data.token}; path=/; max-age=${60 * 60 * 24 * 7}`;
-       window.location.href = "/";
+        window.location.href = "/";
       } else {
         setError(data.error || "Login failed");
       }
@@ -44,49 +85,97 @@ export default function LoginPage() {
     }
   };
 
+  const inputClass = (field: keyof FieldErrors) =>
+    `w-full bg-[#1a1f2e] border text-[#e2e8f0] placeholder-[#4a5568] rounded-xl px-4 py-3 text-sm focus:outline-none transition-colors ${
+      touched[field] && fieldErrors[field]
+        ? "border-red-500 focus:border-red-400"
+        : "border-[#2d3748] focus:border-blue-500"
+    }`;
+
   return (
     <main className="bg-[#1a1f2e] min-h-[calc(100vh-56px)] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
+        {/* Header */}
         <div className="text-center mb-8">
           <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="26"
+              height="26"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
               <circle cx="12" cy="7" r="4" />
             </svg>
           </div>
-          <h1 className="text-white text-2xl font-semibold mb-1">Welcome back</h1>
+          <h1 className="text-white text-2xl font-semibold mb-1">
+            Welcome back
+          </h1>
           <p className="text-[#8b9cb8] text-sm">Log in to continue learning</p>
         </div>
 
         <div className="bg-[#252d3d] border border-[#2d3748] rounded-2xl p-7">
+          {/* Server / API error */}
           {error && (
             <div className="bg-red-900/30 border border-red-700/50 rounded-xl px-4 py-3 mb-5">
               <p className="text-red-400 text-sm">❌ {error}</p>
             </div>
           )}
 
+          {/* Email */}
           <div className="mb-4">
-            <label className="text-[#a0aec0] text-xs font-medium mb-2 block uppercase tracking-wide">Email</label>
+            <label className="text-[#a0aec0] text-xs font-medium mb-2 block uppercase tracking-wide">
+              Email
+            </label>
             <input
               type="email"
               placeholder="you@example.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) =>
+                handleChange("email", e.target.value, setEmail)
+              }
+              onBlur={() => handleBlur("email")}
               onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-              className="w-full bg-[#1a1f2e] border border-[#2d3748] text-[#e2e8f0] placeholder-[#4a5568] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+              className={inputClass("email")}
             />
+            {touched.email && fieldErrors.email && (
+              <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+                </svg>
+                {fieldErrors.email}
+              </p>
+            )}
           </div>
 
+          {/* Password */}
           <div className="mb-6">
-            <label className="text-[#a0aec0] text-xs font-medium mb-2 block uppercase tracking-wide">Password</label>
+            <label className="text-[#a0aec0] text-xs font-medium mb-2 block uppercase tracking-wide">
+              Password
+            </label>
             <input
               type="password"
               placeholder="••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) =>
+                handleChange("password", e.target.value, setPassword)
+              }
+              onBlur={() => handleBlur("password")}
               onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-              className="w-full bg-[#1a1f2e] border border-[#2d3748] text-[#e2e8f0] placeholder-[#4a5568] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+              className={inputClass("password")}
             />
+            {touched.password && fieldErrors.password && (
+              <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+                </svg>
+                {fieldErrors.password}
+              </p>
+            )}
           </div>
 
           <button
@@ -100,7 +189,9 @@ export default function LoginPage() {
 
         <p className="text-center text-[#8b9cb8] text-sm mt-5">
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-blue-400 hover:underline">Sign up free</Link>
+          <Link href="/signup" className="text-blue-400 hover:underline">
+            Sign up free
+          </Link>
         </p>
       </div>
     </main>
