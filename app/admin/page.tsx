@@ -12,18 +12,20 @@ type VocabWord  = {
   level: string; category: string;
 };
 type StoryCard  = {
-  _id: string;
-  title: string;
-  imageUrl: string;
-  prompt: string;
-  minWords: number;
+  _id: string; title: string; imageUrl: string; prompt: string; minWords: number;
+};
+type GrammarExample = { english: string; hindi: string };
+type GrammarRule    = { rule: string; hindi: string; examples: GrammarExample[] };
+type GrammarTopic   = {
+  _id: string; title: string; hindiTitle: string; icon: string; color: string; rules: GrammarRule[];
 };
 
-const LEVELS = ["beginner", "intermediate", "advanced"];
+const LEVELS  = ["beginner", "intermediate", "advanced"];
+const COLORS  = ["blue", "green", "purple", "orange", "red", "yellow"];
 
 // ─── Main Page ───────────────────────────────────────────────────
 export default function AdminPage() {
-  const [tab, setTab] = useState<"lessons" | "vocab" | "story">("lessons");
+  const [tab, setTab] = useState<"lessons" | "vocab" | "story" | "grammar">("lessons");
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -31,8 +33,8 @@ export default function AdminPage() {
         <h1 className="text-2xl font-bold text-center mb-6">🚀 Admin Panel</h1>
 
         {/* Main Tabs */}
-        <div className="flex bg-gray-800 rounded-xl p-1 gap-1 mb-7">
-          {(["lessons", "vocab", "story"] as const).map((t) => (
+        <div className="flex bg-gray-800 rounded-xl p-1 gap-1 mb-7 flex-wrap">
+          {(["lessons", "vocab", "story", "grammar"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -40,7 +42,7 @@ export default function AdminPage() {
                 tab === t ? "bg-blue-600 text-white shadow" : "text-gray-400 hover:text-white"
               }`}
             >
-              {t === "lessons" ? "📚 Lessons" : t === "vocab" ? "📖 Vocabulary" : "🖼️ Story Cards"}
+              {t === "lessons" ? "📚 Lessons" : t === "vocab" ? "📖 Vocab" : t === "story" ? "🖼️ Story" : "📝 Grammar"}
             </button>
           ))}
         </div>
@@ -48,13 +50,14 @@ export default function AdminPage() {
         {tab === "lessons" && <LessonsTab />}
         {tab === "vocab"   && <VocabTab />}
         {tab === "story"   && <StoryCardsTab />}
+        {tab === "grammar" && <GrammarTab />}
       </div>
     </div>
   );
 }
 
 // ════════════════════════════════════════════════════════════════
-// LESSONS TAB (unchanged)
+// LESSONS TAB
 // ════════════════════════════════════════════════════════════════
 function LessonsTab() {
   const [title, setTitle]           = useState("");
@@ -95,8 +98,7 @@ function LessonsTab() {
     setLoading(true);
     try {
       const res  = await fetch("/api/lessons", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, sentences: valid, youtubeUrl }),
       });
       const data = await res.json();
@@ -181,7 +183,7 @@ function LessonsTab() {
 }
 
 // ════════════════════════════════════════════════════════════════
-// VOCAB TAB (unchanged)
+// VOCAB TAB
 // ════════════════════════════════════════════════════════════════
 function VocabTab() {
   const [view, setView]             = useState<"add" | "saved">("add");
@@ -209,7 +211,7 @@ function VocabTab() {
       return { word: parts[0] || "", meaning: parts[1] || "", hindiMeaning: parts[2] || "",
         example: parts[3] || "", hindiExample: parts[4] || "", pronunciation: parts[5] || "", level, category };
     }).filter(Boolean) as VocabWord[];
-    if (!parsed.length) return alert("No valid lines found. Use: word | meaning | hindiMeaning");
+    if (!parsed.length) return alert("No valid lines found.");
     setWords([...words, ...parsed]); setBulkText("");
   };
 
@@ -253,14 +255,13 @@ function VocabTab() {
           📖 Saved ({savedVocab.length})
         </button>
       </div>
-
       {view === "add" && (
         <div className="bg-gray-800 p-6 rounded-2xl space-y-4">
           <h2 className="text-lg font-semibold">➕ Add Vocabulary</h2>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-gray-400 text-xs uppercase tracking-wide mb-1.5 block">Category / Topic</label>
-              <input type="text" placeholder='e.g. "emotions", "food"' value={category} onChange={(e) => setCategory(e.target.value)}
+              <label className="text-gray-400 text-xs uppercase tracking-wide mb-1.5 block">Category</label>
+              <input type="text" placeholder='e.g. "emotions"' value={category} onChange={(e) => setCategory(e.target.value)}
                 className="w-full bg-gray-700 border border-gray-600 text-white placeholder-gray-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500" />
             </div>
             <div>
@@ -271,18 +272,12 @@ function VocabTab() {
               </select>
             </div>
           </div>
-          <div>
-            <label className="text-gray-400 text-xs uppercase tracking-wide mb-1.5 block">Bulk Paste</label>
-            <p className="text-gray-500 text-xs mb-2">
-              Format: <span className="text-blue-400 font-mono">word | meaning | hindiMeaning | example | hindiExample | pronunciation</span>
-            </p>
-            <textarea placeholder={"happy | feeling good | खुश | I am happy today. | मैं आज खुश हूँ। | hap-ee"}
-              value={bulkText} onChange={(e) => setBulkText(e.target.value)}
-              className="w-full p-3 rounded-lg text-black h-28 font-mono text-xs" />
-            <button onClick={handleBulkAdd} className="bg-purple-600 px-4 py-2 rounded-lg mt-2 w-full hover:bg-purple-700 text-sm">
-              ⚡ Bulk Add Words
-            </button>
-          </div>
+          <textarea placeholder={"happy | feeling good | खुश | I am happy. | मैं खुश हूँ। | hap-ee"}
+            value={bulkText} onChange={(e) => setBulkText(e.target.value)}
+            className="w-full p-3 rounded-lg text-black h-28 font-mono text-xs" />
+          <button onClick={handleBulkAdd} className="bg-purple-600 px-4 py-2 rounded-lg w-full hover:bg-purple-700 text-sm">
+            ⚡ Bulk Add Words
+          </button>
           <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
             {words.map((w, i) => (
               <div key={i} className="bg-gray-700 p-4 rounded-xl relative">
@@ -310,13 +305,11 @@ function VocabTab() {
           </div>
         </div>
       )}
-
       {view === "saved" && (
         <div className="bg-gray-800 p-6 rounded-2xl">
           <h2 className="text-lg font-semibold mb-4">📖 Saved Vocabulary ({savedVocab.length})</h2>
           {savedVocab.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-400 text-4xl mb-3">📭</p>
               <p className="text-gray-400 text-sm">No vocab yet.</p>
               <button onClick={() => setView("add")} className="text-blue-400 text-sm mt-2 hover:underline">Add some →</button>
             </div>
@@ -329,11 +322,9 @@ function VocabTab() {
                       <span className="text-white font-semibold">{v.word}</span>
                       {v.pronunciation && <span className="text-gray-500 text-xs">/{v.pronunciation}/</span>}
                       <span className={`text-xs px-2 py-0.5 rounded-full ${v.level === "beginner" ? "bg-green-900/60 text-green-400" : v.level === "intermediate" ? "bg-yellow-900/60 text-yellow-400" : "bg-red-900/60 text-red-400"}`}>{v.level}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-400">{v.category}</span>
                     </div>
                     <p className="text-gray-300 text-sm">{v.meaning}{v.hindiMeaning && <span className="text-gray-400"> — {v.hindiMeaning}</span>}</p>
                     {v.example && <p className="text-blue-300 text-xs mt-1 italic">"{v.example}"</p>}
-                    {v.hindiExample && <p className="text-gray-500 text-xs">"{v.hindiExample}"</p>}
                   </div>
                   <button onClick={() => handleDelete(v._id!)}
                     className="text-red-400 hover:text-red-500 text-xs border border-red-400/30 px-2 py-1.5 rounded-lg shrink-0">🗑</button>
@@ -351,16 +342,14 @@ function VocabTab() {
 // STORY CARDS TAB
 // ════════════════════════════════════════════════════════════════
 function StoryCardsTab() {
-  const [view, setView]         = useState<"add" | "saved">("add");
-  const [cards, setCards]       = useState<StoryCard[]>([]);
-  const [saving, setSaving]     = useState(false);
-  const [imgError, setImgError] = useState("");
-
-  // Form state
-  const [title, setTitle]       = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [prompt, setPrompt]     = useState("");
-  const [minWords, setMinWords] = useState(40);
+  const [view, setView]           = useState<"add" | "saved">("add");
+  const [cards, setCards]         = useState<StoryCard[]>([]);
+  const [saving, setSaving]       = useState(false);
+  const [imgError, setImgError]   = useState("");
+  const [title, setTitle]         = useState("");
+  const [imageUrl, setImageUrl]   = useState("");
+  const [prompt, setPrompt]       = useState("");
+  const [minWords, setMinWords]   = useState(40);
   const [previewOk, setPreviewOk] = useState(false);
 
   useEffect(() => { fetchCards(); }, []);
@@ -371,9 +360,7 @@ function StoryCardsTab() {
   }
 
   function handleImageUrlChange(val: string) {
-    setImageUrl(val);
-    setPreviewOk(false);
-    setImgError("");
+    setImageUrl(val); setPreviewOk(false); setImgError("");
   }
 
   function resetForm() {
@@ -386,21 +373,15 @@ function StoryCardsTab() {
     if (!imageUrl.trim()) return alert("Image URL is required!");
     if (!prompt.trim())   return alert("Prompt is required!");
     if (!previewOk)       return alert("Please verify the image loads correctly first.");
-
     setSaving(true);
     try {
       const res  = await fetch("/api/story-cards", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, imageUrl, prompt, minWords }),
       });
       const data = await res.json();
-      if (res.ok) {
-        alert("✅ Story card saved!");
-        resetForm();
-        setView("saved");
-        fetchCards();
-      } else { alert(`❌ ${data.error}`); }
+      if (res.ok) { alert("✅ Story card saved!"); resetForm(); setView("saved"); fetchCards(); }
+      else { alert(`❌ ${data.error}`); }
     } catch { alert("❌ Network error"); }
     setSaving(false);
   }
@@ -413,7 +394,6 @@ function StoryCardsTab() {
 
   return (
     <div className="space-y-5">
-      {/* Sub tabs */}
       <div className="flex gap-2 border-b border-gray-700 pb-3">
         <button onClick={() => setView("add")}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "add" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}>
@@ -424,80 +404,300 @@ function StoryCardsTab() {
           🖼️ Saved ({cards.length})
         </button>
       </div>
-
-      {/* ── ADD VIEW ── */}
       {view === "add" && (
         <div className="bg-gray-800 p-6 rounded-2xl space-y-4">
           <h2 className="text-lg font-semibold">➕ Add Story Card</h2>
-
-          {/* Title */}
           <div>
             <label className="text-gray-400 text-xs uppercase tracking-wide mb-1.5 block">Card Title *</label>
             <input type="text" placeholder='e.g. "The Old Lighthouse"' value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full bg-gray-700 border border-gray-600 text-white placeholder-gray-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500" />
           </div>
-
-          {/* Image URL */}
           <div>
             <label className="text-gray-400 text-xs uppercase tracking-wide mb-1.5 block">Image URL *</label>
-            <p className="text-gray-500 text-xs mb-2">
-              Use any public image URL. Tip: <span className="text-blue-400">unsplash.com</span> → right-click image → Copy image address
-            </p>
             <input type="url" placeholder="https://images.unsplash.com/photo-..." value={imageUrl}
               onChange={(e) => handleImageUrlChange(e.target.value)}
               className="w-full bg-gray-700 border border-gray-600 text-white placeholder-gray-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500" />
-
-            {/* Image Preview */}
             {imageUrl.trim() && (
               <div className="mt-3">
-                <p className="text-gray-400 text-xs mb-2">Preview:</p>
                 {imgError ? (
                   <div className="bg-red-900/30 border border-red-500/40 rounded-xl p-4 text-center">
-                    <p className="text-red-400 text-sm">⚠️ Could not load image. Check the URL.</p>
-                    <p className="text-gray-500 text-xs mt-1">Make sure it's a direct image link ending in .jpg, .png, .webp etc.</p>
+                    <p className="text-red-400 text-sm">⚠️ Could not load image.</p>
                   </div>
                 ) : (
                   <div className="relative rounded-xl overflow-hidden">
-                    <img
-                      src={imageUrl}
-                      alt="Preview"
-                      className="w-full h-44 object-cover rounded-xl"
+                    <img src={imageUrl} alt="Preview" className="w-full h-44 object-cover rounded-xl"
                       onLoad={() => { setPreviewOk(true); setImgError(""); }}
-                      onError={() => { setPreviewOk(false); setImgError("failed"); }}
-                    />
+                      onError={() => { setPreviewOk(false); setImgError("failed"); }} />
                     {previewOk && (
-                      <div className="absolute top-2 right-2 bg-green-600 text-white text-xs px-2 py-1 rounded-lg">
-                        ✓ Image OK
-                      </div>
+                      <div className="absolute top-2 right-2 bg-green-600 text-white text-xs px-2 py-1 rounded-lg">✓ Image OK</div>
                     )}
                   </div>
                 )}
               </div>
             )}
           </div>
-
-          {/* Prompt */}
           <div>
             <label className="text-gray-400 text-xs uppercase tracking-wide mb-1.5 block">Writing Prompt *</label>
-            <p className="text-gray-500 text-xs mb-2">This is shown to the student as their task.</p>
-            <textarea
-              placeholder='e.g. "Look at this image and write a short story about what is happening."'
-              value={prompt} onChange={(e) => setPrompt(e.target.value)}
-              rows={3}
+            <textarea placeholder='e.g. "Write a short story about this image."'
+              value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3}
               className="w-full bg-gray-700 border border-gray-600 text-white placeholder-gray-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 resize-none" />
           </div>
-
-          {/* Min Words */}
           <div>
             <label className="text-gray-400 text-xs uppercase tracking-wide mb-1.5 block">
               Minimum Words: <span className="text-white">{minWords}</span>
             </label>
             <input type="range" min={20} max={200} step={10} value={minWords}
-              onChange={(e) => setMinWords(Number(e.target.value))}
-              className="w-full accent-blue-500" />
-            <div className="flex justify-between text-gray-500 text-xs mt-1">
-              <span>20</span><span>100</span><span>200</span>
+              onChange={(e) => setMinWords(Number(e.target.value))} className="w-full accent-blue-500" />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button onClick={resetForm} className="bg-gray-700 px-4 py-2.5 rounded-lg w-1/3 hover:bg-gray-600 text-sm text-gray-300">🔄 Reset</button>
+            <button onClick={handleSave} disabled={saving}
+              className="bg-green-500 px-4 py-2.5 rounded-lg w-2/3 hover:bg-green-600 disabled:opacity-50 text-sm font-medium">
+              {saving ? "Saving..." : "💾 Save Story Card"}
+            </button>
+          </div>
+        </div>
+      )}
+      {view === "saved" && (
+        <div className="bg-gray-800 p-6 rounded-2xl">
+          <h2 className="text-lg font-semibold mb-4">🖼️ Saved Story Cards ({cards.length})</h2>
+          {cards.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-400 text-sm">No story cards yet.</p>
+              <button onClick={() => setView("add")} className="text-blue-400 text-sm mt-2 hover:underline">Add one →</button>
+            </div>
+          ) : (
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
+              {cards.map((card) => (
+                <div key={card._id} className="bg-gray-700 border border-gray-600 rounded-2xl overflow-hidden">
+                  <img src={card.imageUrl} alt={card.title} className="w-full h-36 object-cover" />
+                  <div className="p-4 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-white font-semibold text-sm">{card.title}</p>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-400 mt-1 inline-block">Min {card.minWords} words</span>
+                      <p className="text-gray-400 text-xs italic mt-2">"{card.prompt}"</p>
+                    </div>
+                    <button onClick={() => handleDelete(card._id)}
+                      className="text-red-400 text-xs border border-red-400/30 px-3 py-1.5 rounded-lg hover:text-red-500 shrink-0">🗑 Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// GRAMMAR TAB
+// ════════════════════════════════════════════════════════════════
+function GrammarTab() {
+  const [view, setView]       = useState<"add" | "saved">("add");
+  const [topics, setTopics]   = useState<GrammarTopic[]>([]);
+  const [saving, setSaving]   = useState(false);
+
+  // Form state
+  const [title, setTitle]           = useState("");
+  const [hindiTitle, setHindiTitle] = useState("");
+  const [icon, setIcon]             = useState("");
+  const [color, setColor]           = useState("blue");
+  const [rules, setRules]           = useState<GrammarRule[]>([
+    { rule: "", hindi: "", examples: [{ english: "", hindi: "" }] }
+  ]);
+
+  useEffect(() => { fetchTopics(); }, []);
+
+  async function fetchTopics() {
+    const res = await fetch("/api/grammar");
+    setTopics(await res.json());
+  }
+
+  function resetForm() {
+    setTitle(""); setHindiTitle(""); setIcon(""); setColor("blue");
+    setRules([{ rule: "", hindi: "", examples: [{ english: "", hindi: "" }] }]);
+  }
+
+  // Rule handlers
+  function addRule() {
+    setRules([...rules, { rule: "", hindi: "", examples: [{ english: "", hindi: "" }] }]);
+  }
+
+  function deleteRule(ri: number) {
+    setRules(rules.filter((_, i) => i !== ri));
+  }
+
+  function updateRule(ri: number, field: "rule" | "hindi", val: string) {
+    const u = [...rules]; u[ri][field] = val; setRules(u);
+  }
+
+  // Example handlers
+  function addExample(ri: number) {
+    const u = [...rules];
+    u[ri].examples.push({ english: "", hindi: "" });
+    setRules(u);
+  }
+
+  function deleteExample(ri: number, ei: number) {
+    const u = [...rules];
+    u[ri].examples = u[ri].examples.filter((_, i) => i !== ei);
+    setRules(u);
+  }
+
+  function updateExample(ri: number, ei: number, field: "english" | "hindi", val: string) {
+    const u = [...rules];
+    u[ri].examples[ei][field] = val;
+    setRules(u);
+  }
+
+  async function handleSave() {
+    if (!title.trim())      return alert("Title required!");
+    if (!hindiTitle.trim()) return alert("Hindi title required!");
+    if (!icon.trim())       return alert("Icon required!");
+
+    const validRules = rules.filter((r) => r.rule.trim() && r.hindi.trim());
+    if (!validRules.length) return alert("Add at least one rule!");
+
+    const payload = {
+      title, hindiTitle, icon, color,
+      rules: validRules.map((r) => ({
+        ...r,
+        examples: r.examples.filter((e) => e.english.trim() && e.hindi.trim()),
+      })),
+    };
+
+    setSaving(true);
+    try {
+      const res  = await fetch("/api/grammar", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert("✅ Grammar topic saved!");
+        resetForm(); setView("saved"); fetchTopics();
+      } else { alert(`❌ ${data.error}`); }
+    } catch { alert("❌ Network error"); }
+    setSaving(false);
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this topic?")) return;
+    await fetch(`/api/grammar/${id}`, { method: "DELETE" });
+    fetchTopics();
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Sub tabs */}
+      <div className="flex gap-2 border-b border-gray-700 pb-3">
+        <button onClick={() => setView("add")}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "add" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}>
+          ➕ Add Topic
+        </button>
+        <button onClick={() => { setView("saved"); fetchTopics(); }}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "saved" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}>
+          📝 Saved ({topics.length})
+        </button>
+      </div>
+
+      {/* ── ADD VIEW ── */}
+      {view === "add" && (
+        <div className="bg-gray-800 p-6 rounded-2xl space-y-5">
+          <h2 className="text-lg font-semibold">➕ Add Grammar Topic</h2>
+
+          {/* Basic Info */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-gray-400 text-xs uppercase tracking-wide mb-1.5 block">Title (English) *</label>
+              <input type="text" placeholder="e.g. Tenses" value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full bg-gray-700 border border-gray-600 text-white placeholder-gray-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="text-gray-400 text-xs uppercase tracking-wide mb-1.5 block">Title (Hindi) *</label>
+              <input type="text" placeholder="e.g. काल" value={hindiTitle}
+                onChange={(e) => setHindiTitle(e.target.value)}
+                className="w-full bg-gray-700 border border-gray-600 text-white placeholder-gray-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="text-gray-400 text-xs uppercase tracking-wide mb-1.5 block">Icon (Emoji) *</label>
+              <input type="text" placeholder="e.g. ⏰" value={icon}
+                onChange={(e) => setIcon(e.target.value)}
+                className="w-full bg-gray-700 border border-gray-600 text-white placeholder-gray-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="text-gray-400 text-xs uppercase tracking-wide mb-1.5 block">Color</label>
+              <select value={color} onChange={(e) => setColor(e.target.value)}
+                className="w-full bg-gray-700 border border-gray-600 text-white rounded-xl px-4 py-2.5 text-sm">
+                {COLORS.map((c) => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Rules */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-gray-400 text-xs uppercase tracking-wide">Rules</label>
+              <button onClick={addRule}
+                className="text-blue-400 text-xs border border-blue-400/40 px-3 py-1 rounded-lg hover:bg-blue-900/30">
+                ➕ Add Rule
+              </button>
+            </div>
+
+            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
+              {rules.map((rule, ri) => (
+                <div key={ri} className="bg-gray-700 p-4 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-white text-sm font-medium">Rule {ri + 1}</p>
+                    {rules.length > 1 && (
+                      <button onClick={() => deleteRule(ri)} className="text-red-400 text-xs hover:text-red-500">✕ Remove</button>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-gray-400 text-xs mb-1">Rule (English) *</p>
+                    <input type="text" placeholder="e.g. Simple Present — Subject + V1"
+                      value={rule.rule} onChange={(e) => updateRule(ri, "rule", e.target.value)}
+                      className="w-full bg-gray-600 rounded-lg px-3 py-2 text-white text-sm" />
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-xs mb-1">Rule (Hindi) *</p>
+                    <input type="text" placeholder="e.g. जो काम रोज होता है"
+                      value={rule.hindi} onChange={(e) => updateRule(ri, "hindi", e.target.value)}
+                      className="w-full bg-gray-600 rounded-lg px-3 py-2 text-white text-sm" />
+                  </div>
+
+                  {/* Examples */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-gray-400 text-xs">Examples</p>
+                      <button onClick={() => addExample(ri)}
+                        className="text-green-400 text-xs border border-green-400/40 px-2 py-0.5 rounded-lg hover:bg-green-900/30">
+                        ➕ Example
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {rule.examples.map((ex, ei) => (
+                        <div key={ei} className="bg-gray-600 p-3 rounded-lg relative">
+                          {rule.examples.length > 1 && (
+                            <button onClick={() => deleteExample(ri, ei)}
+                              className="absolute top-2 right-2 text-red-400 text-xs hover:text-red-500">✕</button>
+                          )}
+                          <input type="text" placeholder="English sentence"
+                            value={ex.english} onChange={(e) => updateExample(ri, ei, "english", e.target.value)}
+                            className="w-full bg-gray-500 rounded px-3 py-1.5 text-white text-xs mb-1.5" />
+                          <input type="text" placeholder="Hindi translation"
+                            value={ex.hindi} onChange={(e) => updateExample(ri, ei, "hindi", e.target.value)}
+                            className="w-full bg-gray-500 rounded px-3 py-1.5 text-white text-xs" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -508,7 +708,7 @@ function StoryCardsTab() {
             </button>
             <button onClick={handleSave} disabled={saving}
               className="bg-green-500 px-4 py-2.5 rounded-lg w-2/3 hover:bg-green-600 disabled:opacity-50 text-sm font-medium">
-              {saving ? "Saving..." : "💾 Save Story Card"}
+              {saving ? "Saving..." : "💾 Save Grammar Topic"}
             </button>
           </div>
         </div>
@@ -517,33 +717,28 @@ function StoryCardsTab() {
       {/* ── SAVED VIEW ── */}
       {view === "saved" && (
         <div className="bg-gray-800 p-6 rounded-2xl">
-          <h2 className="text-lg font-semibold mb-4">🖼️ Saved Story Cards ({cards.length})</h2>
-          {cards.length === 0 ? (
+          <h2 className="text-lg font-semibold mb-4">📝 Saved Grammar Topics ({topics.length})</h2>
+          {topics.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-400 text-4xl mb-3">🖼️</p>
-              <p className="text-gray-400 text-sm">No story cards yet.</p>
+              <p className="text-gray-400 text-4xl mb-3">📝</p>
+              <p className="text-gray-400 text-sm">No grammar topics yet.</p>
               <button onClick={() => setView("add")} className="text-blue-400 text-sm mt-2 hover:underline">Add one →</button>
             </div>
           ) : (
-            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
-              {cards.map((card) => (
-                <div key={card._id} className="bg-gray-700 border border-gray-600 rounded-2xl overflow-hidden">
-                  <img src={card.imageUrl} alt={card.title} className="w-full h-36 object-cover" />
-                  <div className="p-4">
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div>
-                        <p className="text-white font-semibold text-sm">{card.title}</p>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-400 mt-1 inline-block">
-                          Min {card.minWords} words
-                        </span>
-                      </div>
-                      <button onClick={() => handleDelete(card._id)}
-                        className="text-red-400 text-xs border border-red-400/30 px-3 py-1.5 rounded-lg hover:text-red-500 shrink-0">
-                        🗑 Delete
-                      </button>
+            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+              {topics.map((topic) => (
+                <div key={topic._id} className="bg-gray-700 border border-gray-600 rounded-xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{topic.icon}</span>
+                    <div>
+                      <p className="text-white font-semibold text-sm">{topic.title}</p>
+                      <p className="text-gray-400 text-xs">{topic.hindiTitle} • {topic.rules.length} rules</p>
                     </div>
-                    <p className="text-gray-400 text-xs italic">"{card.prompt}"</p>
                   </div>
+                  <button onClick={() => handleDelete(topic._id)}
+                    className="text-red-400 text-xs border border-red-400/30 px-3 py-1.5 rounded-lg hover:text-red-500">
+                    🗑 Delete
+                  </button>
                 </div>
               ))}
             </div>

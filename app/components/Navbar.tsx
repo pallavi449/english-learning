@@ -13,6 +13,7 @@ export default function Navbar() {
     { href: "/quiz", label: "Quiz" },
     { href: "/vocab", label: "Vocab" },
     { href: "/story", label: "Story" },
+    { href: "/grammar", label: "Grammar" },
   ];
 
   return (
